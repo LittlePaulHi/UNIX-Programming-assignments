@@ -132,7 +132,9 @@ void readNet(string proto, string pathIP4, string pathIP6)
                 inet_ntop(AF_INET, &(addr), ipStr, INET_ADDRSTRLEN);
                 cout << proto << '\t' << ipStr << ':' << dec << localPort4 << "\t\t";
                 addr.s_addr = remAddr4;  //htonl(remAddr4);
-                cout << inet_ntoa(addr) << ':' << dec << remPort4 << "\t\t";
+                stringstream ss;
+                ss << dec << remPort4;
+                cout << inet_ntoa(addr) << ':' << (ss.str() == "0" ? "*" : ss.str()) << "\t\t";
                 printProcInfos(inodeIndex);
             }
         }
@@ -163,11 +165,13 @@ void readNet(string proto, string pathIP4, string pathIP6)
 
                 localPort6 = localAddr6withPort.substr(localAddr6withPort.find(":") + 1);
                 localAddr6withPort = localAddr6withPort.substr(0, localAddr6withPort.find(":"));
-                cout << proto << '\t' << hexIp6Convert(localAddr6withPort) << ':' << stoul(localPort6, nullptr, 16) << "\t\t";
+                cout << proto << '\t' << hexIp6Convert(localAddr6withPort) << ':' << stoul(localPort6, nullptr, 16) << "\t\t\t";
 
                 remPort6 = remAddr6withPort.substr(remAddr6withPort.find(":") + 1);
                 remAddr6withPort = remAddr6withPort.substr(0, remAddr6withPort.find(":"));
-                cout << hexIp6Convert(remAddr6withPort) << ':' << stoul(remPort6, nullptr, 16) << "\t\t";  // TODO: convert '*'
+                stringstream ss;
+                ss << stoul(remPort6, nullptr, 16);
+                cout << hexIp6Convert(remAddr6withPort) << ':' << (ss.str() == "0" ? "*" : ss.str()) << "\t\t\t";  // TODO: convert '*'
                 printProcInfos(inodeIndex);
             }
         }
