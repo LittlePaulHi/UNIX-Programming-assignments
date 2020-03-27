@@ -56,12 +56,14 @@ void traversePidFds(string path, string pidStr)  // path = "/proc/[pidStr]/fd/"
                         inodeIndex = stoul(match.str(1), nullptr, 0);
 
                         ifstream fin;
-                        fin.open(regex_replace(path, std::regex("fd/"), "comm"));
+                        fin.open(regex_replace(path, std::regex("fd/"), "cmdline"));
                         if (fin.is_open())
                         {
                             ostringstream ss;
                             ss << fin.rdbuf();
                             procName = ss.str();
+                            procName = procName.substr(procName.find_last_of("/") + 1);
+                            procName += "\n";
                         }
                         ProcInfo procinfo = {atoi(pidStr.c_str()), procName};
                         dictOfProcs[inodeIndex] = procinfo;
@@ -102,6 +104,7 @@ void readNet(string proto, string pathIP4, string pathIP6)
     ifstream fin;
     string line, redundant;
     u_long inodeIndex;
+    stringstream ss;
 
     // IPv4
     fin.open(pathIP4);
@@ -125,17 +128,23 @@ void readNet(string proto, string pathIP4, string pathIP6)
                     >> redundant >> redundant >> redundant >> redundant >> redundant >> redundant
                     >> dec >> inodeIndex)
             {
-                if (!filterStr.empty() && dictOfProcs[inodeIndex].procName.find(filterStr) == string::npos) { continue; }
-
+                ss.str("");
+                ss.clear();
                 char ipStr[INET_ADDRSTRLEN];
                 addr.s_addr = localAddr4;  //htonl(localAddr4);
                 inet_ntop(AF_INET, &(addr), ipStr, INET_ADDRSTRLEN);
-                cout << proto << '\t' << ipStr << ':' << dec << localPort4 << "\t\t";
+                ss << proto << '\t' << ipStr << ':' << dec << localPort4 << "\t\t";
                 addr.s_addr = remAddr4;  //htonl(remAddr4);
-                stringstream ss;
-                ss << dec << remPort4;
-                cout << inet_ntoa(addr) << ':' << (ss.str() == "0" ? "*" : ss.str()) << "\t\t";
-                printProcInfos(inodeIndex);
+                ss << inet_ntoa(addr) << ':';
+                if (remPort4 == 0) { ss << '*' << "\t\t"; }
+                else { ss << dec << remPort4 << "\t\t"; }
+
+                if (filterStr.empty() || (ss.str().find(filterStr) != string::npos) ||
+                    ((to_string(dictOfProcs[inodeIndex].pid) + '/' + dictOfProcs[inodeIndex].procName).find(filterStr) != string::npos))
+                {
+                    cout << ss.str();
+                    printProcInfos(inodeIndex);
+                }
             }
         }
     }
@@ -161,18 +170,24 @@ void readNet(string proto, string pathIP4, string pathIP6)
                     >> redundant >> redundant >> redundant >> redundant >> redundant >> redundant
                     >> dec >> inodeIndex)
             {
-                if (!filterStr.empty() && dictOfProcs[inodeIndex].procName.find(filterStr) == string::npos) { continue; }
-
+                ss.str("");
+                ss.clear();
                 localPort6 = localAddr6withPort.substr(localAddr6withPort.find(":") + 1);
                 localAddr6withPort = localAddr6withPort.substr(0, localAddr6withPort.find(":"));
-                cout << proto << '\t' << hexIp6Convert(localAddr6withPort) << ':' << stoul(localPort6, nullptr, 16) << "\t\t\t";
+                ss << proto << '\t' << hexIp6Convert(localAddr6withPort) << ':' << stoul(localPort6, nullptr, 16) << "\t\t\t";
 
                 remPort6 = remAddr6withPort.substr(remAddr6withPort.find(":") + 1);
                 remAddr6withPort = remAddr6withPort.substr(0, remAddr6withPort.find(":"));
-                stringstream ss;
-                ss << stoul(remPort6, nullptr, 16);
-                cout << hexIp6Convert(remAddr6withPort) << ':' << (ss.str() == "0" ? "*" : ss.str()) << "\t\t\t";  // TODO: convert '*'
-                printProcInfos(inodeIndex);
+                ss << hexIp6Convert(remAddr6withPort) << ':';
+                if (stoul(remPort6, nullptr, 16) == 0) { ss << '*' << "\t\t\t";}
+                else { ss << stoul(remPort6, nullptr, 16) << "\t\t\t"; }
+
+                if (filterStr.empty() || (ss.str().find(filterStr) != string::npos) ||
+                    ((to_string(dictOfProcs[inodeIndex].pid) + '/' + dictOfProcs[inodeIndex].procName).find(filterStr) != string::npos))
+                {
+                    cout << ss.str();
+                    printProcInfos(inodeIndex);
+                }
             }
         }
     }
@@ -203,7 +218,7 @@ int main(int argc, char *argv[])
     if (argc >= 2)
     {
         string cmdLine = argv[1];
-        regex reg("([^\\-]\\w*\\d*)");
+        regex reg("([^\\-].+)");
         for (int i = 1; i < argc; i++)
         {
             if (regex_match(argv[i], reg))
