@@ -11,29 +11,28 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-static void SandboxInit() __attribute__((constructor));
-
-void SandboxInit()
-{
-    
-}
-
 const char* const short_opts = "p:d:";
-char *basedir = ".";
 
-void foo (int, ...);
+void SandboxInit() __attribute__((constructor));
+void SandboxInit(int argc, char** argv)
+{
+}
 
 int main(int argc, char** argv)
 {
-    bool isAllowArgs = false;
     int opt;
+    int cmdStartIndex = 1;
+    bool isAllowArgs = false;
     char *sopath = "./sandbox.so";
+    char *basedir = ".";
 
     for (int index = 1; index < argc; index++)
     {
+        // TODO may have bug(with -- and other options): ./sandbox -- -d / ls /
         if (strcmp(argv[index], "--") == 0)
         {
             isAllowArgs = true;
+            cmdStartIndex += 1;
             break;
         }
     }
@@ -44,26 +43,28 @@ int main(int argc, char** argv)
         {
             case 'p':
                 sopath = optarg;
+                cmdStartIndex += 2;
                 break;
             case 'd':
                 basedir = optarg;
+                cmdStartIndex += 2;
                 break;
             default: /* '?' */
                 if (!isAllowArgs)
                 {
-                    // TODO
-                    fprintf(stderr, "Usage: %s [-p sopath] [-d basedir] [--] cmd [cmd args ...]\n", __FILE__);
+                    fprintf(stderr, "Usage: %s [-p sopath] [-d basedir] [--] cmd [cmd args ...]\n"
+                        "\t-p: set the path to sandbox.so, default = ./sandbox.so\n"
+                        "\t-d: the base directory that is allowed to access, default = .\n"
+                        "\t--: separate the arguments for sandbox and for the executed command\n", __FILE__);
+
+                    exit(EXIT_FAILURE);
                 }
                 break;
         }
     }
+    setenv("LD_PRELOAD", sopath, 1);
+    setenv("BASEDIR", basedir, 1);
 
-    char *ldPreload = malloc(strlen("LD_PRELOAD=") + strlen(sopath) + 1);
-    strcat(ldPreload, "LD_PRELOAD=");
-    strcat(ldPreload, sopath);
-    putenv(ldPreload);
-
-    // TODO split the input
     pid_t pid;
     int status;
     if ((pid = fork()) < 0)
@@ -73,8 +74,14 @@ int main(int argc, char** argv)
     }
     else if (pid == 0)  /* child */
     {
-        char *argvs[] = { "ls", "-la", "/", "Makefile", NULL };
-        if (execvp("ls", argvs) == -1)
+        char *cmd[argc - cmdStartIndex + 1];
+        for (int index = cmdStartIndex; index < argc; index++)
+        {
+            cmd[index - cmdStartIndex] = argv[index];
+        }
+        cmd[argc - cmdStartIndex] = NULL;
+
+        if (execvp(cmd[0], cmd) == -1)
         {
             perror("execvp error");
             exit(EXIT_FAILURE);
@@ -84,8 +91,6 @@ int main(int argc, char** argv)
     {
         waitpid(pid, &status, 0);
     }
-
-    // system("ls -la / Makefile");
 
     return 0;
 }

@@ -11,6 +11,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 /* Detect if open needs mode as a third argument (or for openat as a fourth
    argument).  */
@@ -44,23 +45,25 @@
 		fprintf(stderr, "cannot link the loader(%s)\n", #funcname);	\
 	}
 
-static void SandboxsoInit() __attribute__((constructor));
-
-void SandboxsoInit()
+char *basedirso = ".";
+void SandboxsoInit() __attribute__((constructor));
+void SandboxsoInit(int argc, char** argv)
 {
-    // TODO init something
 }
 
-/* Compare this path with basedir */
+/* Compare this path with basedirso */
 bool comparePath(const char *pathname)
 {
-	if (pathname[0] != '.' && pathname[0] != '/' && strcmp(basedir, ".") == 0)
+	basedirso = getenv("BASEDIR");
+
+	/* basedirso=. => cat Makefile */
+	if (pathname[0] != '.' && pathname[0] != '/' && strcmp(basedirso, ".") == 0)
 	{
 		return true;
 	}
 
 	// deal with /home/*
-	if (strstr(pathname, "/home") != NULL && strcmp(basedir, ".") == 0)
+	if (strstr(pathname, "/home") != NULL && strcmp(basedirso, ".") == 0)
 	{
 		char cwd[FILENAME_MAX];
 		if (getcwd(cwd, sizeof(cwd)) != NULL)
@@ -77,28 +80,35 @@ bool comparePath(const char *pathname)
 		}
 	}
 
-	for (int index = 0; index < strlen(basedir); index++)
+	for (int index = 0; index < strlen(basedirso); index++)
 	{
 		if (index >= strlen(pathname))
 		{
 			break;
 		}
 
-		if (basedir[index] != pathname[index])
+		if (basedirso[index] != pathname[index])
 		{
 			return false;
 		}
 	}
 
-    if (strlen(basedir) < strlen(pathname) && pathname[strlen(basedir)] != '/')
+    if (strlen(basedirso) < strlen(pathname))
     {
-        return false;
+		if (strcmp(basedirso, "/") == 0)  /* basedirso=/ => cat /proc/... */
+		{
+			return true;
+		}
+		else if (pathname[strlen(basedirso)] != '/')
+		{
+			return false;
+		}
     }
 
 	return true;
 }
 
-#pragma region chown lchown create
+#pragma region chmod(fchmodat) chown(lchown, fchownat) create
 static int (*original_chdir)(const char *) = NULL;
 int chdir(const char *pathname)
 {
@@ -126,7 +136,6 @@ int chmod(const char *pathname, mode_t mode)
 	if (!comparePath(pathname))
 	{
 		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
-		return -1;
 	}
 	else
 	{
@@ -137,8 +146,30 @@ int chmod(const char *pathname, mode_t mode)
 		}
 
 		CALL_ORIGIN(chmod, pathname, mode);
-		return 0;
 	}
+
+	return -1;
+}
+
+static int (*original_fchmodat)(int, const char *, mode_t, int) = NULL;
+int fchmodat(int dirfd, const char *pathname, mode_t mode, int flags)
+{
+	if (!comparePath(pathname))
+	{
+		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
+	}
+	else
+	{
+		printf("Allow %s operation\n", __FUNCTION__);
+		if (original_fchmodat == NULL)
+		{
+			LOAD_ORIGIN(fchmodat);
+		}
+
+		CALL_ORIGIN(fchmodat, dirfd, pathname, mode, flags);
+	}
+
+	return -1;
 }
 
 static int (*original_chown)(const char *, uid_t, gid_t) = NULL;
@@ -181,6 +212,27 @@ int lchown(const char *pathname, uid_t owner, gid_t group)
 		CALL_ORIGIN(lchown, pathname, owner, group);
 		return 0;
 	}
+}
+
+static int (*original_fchownat)(int, const char *, uid_t, gid_t, int) = NULL;
+int fchownat(int dirfd, const char *pathname, uid_t owner, gid_t group, int flags)
+{
+	if (!comparePath(pathname))
+	{
+		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
+	}
+	else
+	{
+		printf("Allow %s operation\n", __FUNCTION__);
+		if (original_fchownat == NULL)
+		{
+			LOAD_ORIGIN(fchownat);
+		}
+
+		CALL_ORIGIN(fchownat, dirfd, pathname, owner, group, flags);
+	}
+
+	return -1;
 }
 
 static int (*original_creat)(const char *, mode_t) = NULL;
@@ -265,8 +317,7 @@ int open(const char *pathname, int oflag, ...)
 			LOAD_ORIGIN(open);
 		}
 
-		// open with mode
-		if (__OPEN_NEEDS_MODE(oflag))
+		if (__OPEN_NEEDS_MODE(oflag))  // open with mode
 		{
 			va_list arg;
 			va_start(arg, oflag);
@@ -296,7 +347,7 @@ int open64(const char *pathname, int oflag, ...)
         printf("Allow %s operation\n", __FUNCTION__);
 		if (original_open64 == NULL)
 		{
-			LOAD_ORIGIN(open);
+			LOAD_ORIGIN(open64);
 		}
 
         // open64 with mode
@@ -307,7 +358,6 @@ int open64(const char *pathname, int oflag, ...)
 			va_start(arg, oflag);
 			mode = va_arg(arg, mode_t);
 			va_end (arg);
-
 		}
 		
 		CALL_ORIGIN(open64, pathname, oflag, mode);
@@ -359,6 +409,7 @@ DIR *opendir(const char *pathname)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_opendir == NULL)
 		{
 			LOAD_ORIGIN(opendir);
@@ -382,6 +433,7 @@ int mkdir(const char *pathname, mode_t mode)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_mkdir == NULL)
 		{
 			LOAD_ORIGIN(mkdir);
@@ -402,6 +454,7 @@ int rmdir(const char *pathname)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_rmdir == NULL)
 		{
 			LOAD_ORIGIN(rmdir);
@@ -422,6 +475,7 @@ int rename(const char *oldpath, const char *newpath)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_rename == NULL)
 		{
 			LOAD_ORIGIN(rename);
@@ -443,6 +497,7 @@ int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpat
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_renameat == NULL)
 		{
 			LOAD_ORIGIN(renameat);
@@ -464,6 +519,7 @@ int renameat2(int olddirfd, const char *oldpath,
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_renameat2 == NULL)
 		{
 			LOAD_ORIGIN(renameat2);
@@ -485,6 +541,7 @@ int remove(const char *pathname)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_remove == NULL)
 		{
 			LOAD_ORIGIN(remove);
@@ -498,7 +555,7 @@ int remove(const char *pathname)
 #pragma endregion mkdir remove rename rmdir
 
 
-#pragma region stat(__xstat) lstat(__lxstat)
+#pragma region stat(__xstat) /* lstat(__lxstat) */
 static int (*original_stat)(const char *, struct stat *) = NULL;
 int stat(const char *pathname, struct stat *stat_buf)
 {
@@ -508,6 +565,7 @@ int stat(const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_stat == NULL)
 		{
 			LOAD_ORIGIN(stat);
@@ -528,6 +586,7 @@ int __xstat(int ver, const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original___xstat == NULL)
 		{
 			LOAD_ORIGIN(__xstat);
@@ -539,6 +598,7 @@ int __xstat(int ver, const char *pathname, struct stat *stat_buf)
 	return -1;
 }
 
+/*
 static int (*original_lstat)(const char *, struct stat *) = NULL;
 int lstat(const char *pathname, struct stat *stat_buf)
 {
@@ -548,6 +608,7 @@ int lstat(const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_lstat == NULL)
 		{
 			LOAD_ORIGIN(lstat);
@@ -568,6 +629,7 @@ int __lxstat(int ver, const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original___lxstat == NULL)
 		{
 			LOAD_ORIGIN(__lxstat);
@@ -578,6 +640,7 @@ int __lxstat(int ver, const char *pathname, struct stat *stat_buf)
 
 	return -1;
 }
+*/
 #pragma endregion stat
 
 
@@ -591,6 +654,7 @@ int link(const char *path1, const char *path2)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_link == NULL)
 		{
 			LOAD_ORIGIN(link);
@@ -611,6 +675,7 @@ ssize_t readlink(const char *pathname, char *buf, size_t bufsize)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_readlink == NULL)
 		{
 			LOAD_ORIGIN(readlink);
@@ -631,6 +696,7 @@ int symlink(const char *path1, const char *path2)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_symlink == NULL)
 		{
 			LOAD_ORIGIN(symlink);
@@ -651,6 +717,7 @@ int unlink(const char *pathname)
 	}
 	else
 	{
+		printf("Allow %s operation\n", __FUNCTION__);
 		if (original_unlink == NULL)
 		{
 			LOAD_ORIGIN(unlink);
@@ -665,7 +732,6 @@ int unlink(const char *pathname)
 
 
 #pragma region execl execle execlp execv system
-
 int execl(const char *pathname, const char *arg, ...)
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, pathname);
