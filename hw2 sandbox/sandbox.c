@@ -1,4 +1,4 @@
-#include "sandbox.h"
+// #include "sandbox.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-const char* const short_opts = "p:d:";
+const char* const short_opts = "d:p:";
 
 void SandboxInit() __attribute__((constructor));
 void SandboxInit(int argc, char** argv)
@@ -41,14 +41,16 @@ int main(int argc, char** argv)
     {
         switch(opt)
         {
-            case 'p':
-                sopath = optarg;
-                cmdStartIndex += 2;
-                break;
             case 'd':
                 basedir = optarg;
                 cmdStartIndex += 2;
                 break;
+
+            case 'p':
+                sopath = optarg;
+                cmdStartIndex += 2;
+                break;
+
             default: /* '?' */
                 if (!isAllowArgs)
                 {
@@ -62,8 +64,8 @@ int main(int argc, char** argv)
                 break;
         }
     }
-    setenv("LD_PRELOAD", sopath, 1);
     setenv("BASEDIR", basedir, 1);
+    setenv("LD_PRELOAD", sopath, 1);
 
     pid_t pid;
     int status;
