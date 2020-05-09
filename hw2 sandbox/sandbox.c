@@ -32,7 +32,6 @@ int main(int argc, char** argv)
         {
             isAllowArgs = true;
             cmdStartIndex += 1;
-            argv[index] = "";
             break;
         }
     }

@@ -18,7 +18,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include <fcntl.h>
-
+#include <errno.h>
 
 // #define	HOOK_VAR(type, name, argtype)	static type (*original_##name)(argtype) = NULL;
 #define LOAD_ORIGIN(funcname)	\
@@ -115,11 +115,11 @@ int chdir(const char *pathname)
 	if (!comparePath(pathname))
 	{
 		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
-		return -1;
+		return EACCES;
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_chdir == NULL)
 		{
 			LOAD_ORIGIN(chdir);
@@ -139,7 +139,7 @@ int chmod(const char *pathname, mode_t mode)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_chmod == NULL)
 		{
 			LOAD_ORIGIN(chmod);
@@ -148,7 +148,7 @@ int chmod(const char *pathname, mode_t mode)
 		CALL_ORIGIN(chmod, pathname, mode);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_fchmodat)(int, const char *, mode_t, int) = NULL;
@@ -160,7 +160,7 @@ int fchmodat(int dirfd, const char *pathname, mode_t mode, int flags)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_fchmodat == NULL)
 		{
 			LOAD_ORIGIN(fchmodat);
@@ -169,7 +169,7 @@ int fchmodat(int dirfd, const char *pathname, mode_t mode, int flags)
 		CALL_ORIGIN(fchmodat, dirfd, pathname, mode, flags);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_chown)(const char *, uid_t, gid_t) = NULL;
@@ -178,11 +178,11 @@ int chown(const char *pathname, uid_t owner, gid_t group)
 	if (!comparePath(pathname))
 	{
 		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
-		return -1;
+		return EACCES;
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_chown == NULL)
 		{
 			LOAD_ORIGIN(chown);
@@ -199,11 +199,11 @@ int lchown(const char *pathname, uid_t owner, gid_t group)
 	if (!comparePath(pathname))
 	{
 		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
-		return -1;
+		return EACCES;
 	}
 	else
 	{
-        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+        // printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_lchown == NULL)
 		{
 			LOAD_ORIGIN(lchown);
@@ -223,7 +223,7 @@ int fchownat(int dirfd, const char *pathname, uid_t owner, gid_t group, int flag
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_fchownat == NULL)
 		{
 			LOAD_ORIGIN(fchownat);
@@ -232,7 +232,7 @@ int fchownat(int dirfd, const char *pathname, uid_t owner, gid_t group, int flag
 		CALL_ORIGIN(fchownat, dirfd, pathname, owner, group, flags);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_creat)(const char *, mode_t) = NULL;
@@ -244,7 +244,7 @@ int creat(const char *pathname, mode_t mode)
 	}
 	else
 	{
-        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+        // printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_creat == NULL)
 		{
 			LOAD_ORIGIN(creat);
@@ -254,7 +254,7 @@ int creat(const char *pathname, mode_t mode)
 		return 0;
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_creat64)(const char *, mode_t) = NULL;
@@ -266,7 +266,7 @@ int creat64(const char *pathname, mode_t mode)
 	}
 	else
 	{
-        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+        // printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_creat64 == NULL)
 		{
 			LOAD_ORIGIN(creat64);
@@ -276,13 +276,12 @@ int creat64(const char *pathname, mode_t mode)
 		return 0;
 	}
 
-	return -1;
+	return EACCES;
 }
 #pragma endregion chdir chmod chown creat
 
 
-// TODO openat2
-#pragma region fopen(fopen64) freopen open open64 openat(?) opendir
+#pragma region fopen(fopen64) freopen open open64 openat opendir
 static FILE* (*original_fopen)(const char *, const char *) = NULL;
 FILE *fopen(const char *pathname, const char *mode)
 {
@@ -292,7 +291,7 @@ FILE *fopen(const char *pathname, const char *mode)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_fopen == NULL)
 		{
 			LOAD_ORIGIN(fopen);
@@ -313,7 +312,7 @@ FILE *fopen64(const char *pathname, const char *mode)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_fopen64 == NULL)
 		{
 			LOAD_ORIGIN(fopen64);
@@ -334,7 +333,7 @@ FILE *freopen(const char *pathname, const char *mode, FILE *stream)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_freopen == NULL)
 		{
 			LOAD_ORIGIN(freopen);
@@ -355,7 +354,7 @@ int open(const char *pathname, int oflag, ...)
 	}
 	else
 	{
-        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+        // printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_open == NULL)
 		{
 			LOAD_ORIGIN(open);
@@ -376,7 +375,7 @@ int open(const char *pathname, int oflag, ...)
 		}
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_open64)(const char *, int, ...) = NULL;
@@ -388,7 +387,7 @@ int open64(const char *pathname, int oflag, ...)
 	}
 	else
 	{
-        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+        // printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_open64 == NULL)
 		{
 			LOAD_ORIGIN(open64);
@@ -407,7 +406,7 @@ int open64(const char *pathname, int oflag, ...)
 		CALL_ORIGIN(open64, pathname, oflag, mode);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_openat)(const char *, int, ...) = NULL;
@@ -419,7 +418,7 @@ int openat(int dirfd, const char *pathname, int oflag, ...)
 	}
 	else
 	{
-        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+        // printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_openat == NULL)
 		{
 			LOAD_ORIGIN(openat);
@@ -441,7 +440,7 @@ int openat(int dirfd, const char *pathname, int oflag, ...)
 		}
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static DIR *(*original_opendir)(const char *) = NULL;
@@ -453,7 +452,7 @@ DIR *opendir(const char *pathname)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_opendir == NULL)
 		{
 			LOAD_ORIGIN(opendir);
@@ -467,7 +466,7 @@ DIR *opendir(const char *pathname)
 #pragma endregion fopen freopen open open64 openat opendir 
 
 
-#pragma region mkdir remove rename rmdir
+#pragma region mkdir rmdir remove rename
 static int (*original_mkdir)(const char *, mode_t) = NULL;
 int mkdir(const char *pathname, mode_t mode)
 {
@@ -477,7 +476,7 @@ int mkdir(const char *pathname, mode_t mode)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_mkdir == NULL)
 		{
 			LOAD_ORIGIN(mkdir);
@@ -486,7 +485,7 @@ int mkdir(const char *pathname, mode_t mode)
 		CALL_ORIGIN(mkdir, pathname, mode);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_rmdir)(const char *) = NULL;
@@ -498,7 +497,7 @@ int rmdir(const char *pathname)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_rmdir == NULL)
 		{
 			LOAD_ORIGIN(rmdir);
@@ -507,7 +506,7 @@ int rmdir(const char *pathname)
 		CALL_ORIGIN(rmdir, pathname);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_rename)(const char *, const char *) = NULL;
@@ -519,7 +518,7 @@ int rename(const char *oldpath, const char *newpath)
 	}
 	else
 	{
-		printf("Allow %s to access from %s to %s\n", __FUNCTION__, oldpath, newpath);
+		// printf("Allow %s to access from %s to %s\n", __FUNCTION__, oldpath, newpath);
 		if (original_rename == NULL)
 		{
 			LOAD_ORIGIN(rename);
@@ -528,7 +527,7 @@ int rename(const char *oldpath, const char *newpath)
 		CALL_ORIGIN(rename, oldpath, newpath);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 /*
@@ -541,7 +540,7 @@ int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpat
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_renameat == NULL)
 		{
 			LOAD_ORIGIN(renameat);
@@ -550,7 +549,7 @@ int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpat
 		CALL_ORIGIN(renameat, olddirfd, oldpath, newdirfd, newpath);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static uid_t (*original_renameat2)(int, const char *, int, const char *, unsigned int) = NULL;
@@ -563,7 +562,7 @@ int renameat2(int olddirfd, const char *oldpath,
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_renameat2 == NULL)
 		{
 			LOAD_ORIGIN(renameat2);
@@ -572,7 +571,7 @@ int renameat2(int olddirfd, const char *oldpath,
 		CALL_ORIGIN(renameat2, olddirfd, oldpath, newdirfd, newpath, flags);
 	}
 
-	return -1;
+	return EACCES;
 }
 */
 
@@ -585,7 +584,7 @@ int remove(const char *pathname)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_remove == NULL)
 		{
 			LOAD_ORIGIN(remove);
@@ -594,7 +593,7 @@ int remove(const char *pathname)
 		CALL_ORIGIN(remove, pathname);
 	}
 
-	return -1;
+	return EACCES;
 }
 #pragma endregion mkdir remove rename rmdir
 
@@ -609,7 +608,7 @@ int stat(const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_stat == NULL)
 		{
 			LOAD_ORIGIN(stat);
@@ -618,7 +617,7 @@ int stat(const char *pathname, struct stat *stat_buf)
 		CALL_ORIGIN(stat, pathname, stat_buf);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original___xstat)(int, const char *, struct stat *) = NULL;
@@ -630,7 +629,7 @@ int __xstat(int ver, const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original___xstat == NULL)
 		{
 			LOAD_ORIGIN(__xstat);
@@ -639,7 +638,7 @@ int __xstat(int ver, const char *pathname, struct stat *stat_buf)
 		CALL_ORIGIN(__xstat, ver, pathname, stat_buf);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original___xstat64)(int, const char *, struct stat64 *) = NULL;
@@ -651,7 +650,7 @@ int __xstat64(int ver, const char * pathname, struct stat64 *stat_buf)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original___xstat64 == NULL)
 		{
 			LOAD_ORIGIN(__xstat64);
@@ -660,7 +659,7 @@ int __xstat64(int ver, const char * pathname, struct stat64 *stat_buf)
 		CALL_ORIGIN(__xstat64, ver, pathname, stat_buf);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 /*
@@ -673,7 +672,7 @@ int lstat(const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_lstat == NULL)
 		{
 			LOAD_ORIGIN(lstat);
@@ -682,7 +681,7 @@ int lstat(const char *pathname, struct stat *stat_buf)
 		CALL_ORIGIN(lstat, pathname, stat_buf);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original___lxstat)(int, const char *, struct stat *) = NULL;
@@ -694,7 +693,7 @@ int __lxstat(int ver, const char *pathname, struct stat *stat_buf)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original___lxstat == NULL)
 		{
 			LOAD_ORIGIN(__lxstat);
@@ -703,7 +702,7 @@ int __lxstat(int ver, const char *pathname, struct stat *stat_buf)
 		CALL_ORIGIN(__lxstat, ver, pathname, stat_buf);
 	}
 
-	return -1;
+	return EACCES;
 }
 */
 #pragma endregion stat
@@ -719,7 +718,7 @@ int link(const char *path1, const char *path2)
 	}
 	else
 	{
-		printf("Allow %s to access from %s to %s\n", __FUNCTION__, path1, path2);
+		// printf("Allow %s to access from %s to %s\n", __FUNCTION__, path1, path2);
 		if (original_link == NULL)
 		{
 			LOAD_ORIGIN(link);
@@ -728,7 +727,7 @@ int link(const char *path1, const char *path2)
 		CALL_ORIGIN(link, path1, path2);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static ssize_t (*original_readlink)(const char *, char *, size_t) = NULL;
@@ -740,7 +739,7 @@ ssize_t readlink(const char *pathname, char *buf, size_t bufsize)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_readlink == NULL)
 		{
 			LOAD_ORIGIN(readlink);
@@ -749,7 +748,7 @@ ssize_t readlink(const char *pathname, char *buf, size_t bufsize)
 		CALL_ORIGIN(readlink, pathname, buf, bufsize);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_symlink)(const char *, const char *) = NULL;
@@ -761,7 +760,7 @@ int symlink(const char *path1, const char *path2)
 	}
 	else
 	{
-		printf("Allow %s to access from %s to %s\n", __FUNCTION__, path1, path2);
+		// printf("Allow %s to access from %s to %s\n", __FUNCTION__, path1, path2);
 		if (original_symlink == NULL)
 		{
 			LOAD_ORIGIN(symlink);
@@ -770,7 +769,7 @@ int symlink(const char *path1, const char *path2)
 		CALL_ORIGIN(symlink, path1, path2);
 	}
 
-	return -1;
+	return EACCES;
 }
 
 static int (*original_unlink)(const char *) = NULL;
@@ -782,7 +781,7 @@ int unlink(const char *pathname)
 	}
 	else
 	{
-		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		// printf("Allow %s to access %s\n", __FUNCTION__, pathname);
 		if (original_unlink == NULL)
 		{
 			LOAD_ORIGIN(unlink);
@@ -791,7 +790,7 @@ int unlink(const char *pathname)
 		CALL_ORIGIN(unlink, pathname);
 	}
 
-	return -1;
+	return EACCES;
 }
 #pragma endregion link readlink symlink unlink
 
@@ -800,42 +799,42 @@ int unlink(const char *pathname)
 int execl(const char *pathname, const char *arg, ...)
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, pathname);
-	return -1;
+	return EACCES;
 }
 
 int execle(const char *pathname, const char *arg, ...)
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, pathname);
-	return -1;
+	return EACCES;
 }
 
 int execlp(const char *file, const char *arg, ...)
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, file);
-	return -1;
+	return EACCES;
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, pathname);
-	return -1;
+	return EACCES;
 }
 
 int execv(const char *pathname, char *const argv[])
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, pathname);
-	return -1;
+	return EACCES;
 }
 
 int execvp(const char *file, char *const argv[])
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, file);
-	return -1;
+	return EACCES;
 }
 
 int system(const char *cmdstring)
 {
 	fprintf(stderr, "[sandbox] %s(%s): not allowed\n", __FUNCTION__, cmdstring);
-	return -1;
+	return EACCES;
 }
 #pragma endregion exec* system
