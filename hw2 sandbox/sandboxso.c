@@ -99,7 +99,7 @@ bool comparePath(const char *pathname)
 		{
 			return true;
 		}
-		else if (pathname[strlen(basedirso)] != '/')
+		else if (pathname[strlen(basedirso)] != '/')  /* basedirso=./ => cat ./somedir */
 		{
 			return false;
 		}
@@ -108,7 +108,7 @@ bool comparePath(const char *pathname)
 	return true;
 }
 
-#pragma region chmod(fchmodat) chown(lchown, fchownat) create(//TODO create64)
+#pragma region chmod(fchmodat) chown(lchown, fchownat) creat(creat64)
 static int (*original_chdir)(const char *) = NULL;
 int chdir(const char *pathname)
 {
@@ -241,7 +241,6 @@ int creat(const char *pathname, mode_t mode)
     if (!comparePath(pathname))
 	{
 		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
-		return -1;
 	}
 	else
 	{
@@ -254,12 +253,36 @@ int creat(const char *pathname, mode_t mode)
 		CALL_ORIGIN(creat, pathname, mode);
 		return 0;
 	}
+
+	return -1;
+}
+
+static int (*original_creat64)(const char *, mode_t) = NULL;
+int creat64(const char *pathname, mode_t mode)
+{
+	if (!comparePath(pathname))
+	{
+		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
+	}
+	else
+	{
+        printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		if (original_creat64 == NULL)
+		{
+			LOAD_ORIGIN(creat64);
+		}
+
+		CALL_ORIGIN(creat64, pathname, mode);
+		return 0;
+	}
+
+	return -1;
 }
 #pragma endregion chdir chmod chown creat
 
 
 // TODO openat2
-#pragma region fopen freopen open open64 openat(?) opendir
+#pragma region fopen(fopen64) freopen open open64 openat(?) opendir
 static FILE* (*original_fopen)(const char *, const char *) = NULL;
 FILE *fopen(const char *pathname, const char *mode)
 {
@@ -276,6 +299,27 @@ FILE *fopen(const char *pathname, const char *mode)
 		}
 
 		CALL_ORIGIN(fopen, pathname, mode);
+	}
+
+	return NULL;
+}
+
+static FILE* (*original_fopen64)(const char *, const char *) = NULL;
+FILE *fopen64(const char *pathname, const char *mode)
+{
+	if (!comparePath(pathname))
+	{
+		fprintf(stderr, "[sandbox] %s: access to %s is not allowed\n", __FUNCTION__, pathname);
+	}
+	else
+	{
+		printf("Allow %s to access %s\n", __FUNCTION__, pathname);
+		if (original_fopen64 == NULL)
+		{
+			LOAD_ORIGIN(fopen64);
+		}
+
+		CALL_ORIGIN(fopen64, pathname, mode);
 	}
 
 	return NULL;

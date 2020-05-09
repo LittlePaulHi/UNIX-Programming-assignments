@@ -28,11 +28,11 @@ int main(int argc, char** argv)
 
     for (int index = 1; index < argc; index++)
     {
-        // TODO may have bug(with -- and other options): ./sandbox -- -d / ls /
         if (strcmp(argv[index], "--") == 0)
         {
             isAllowArgs = true;
             cmdStartIndex += 1;
+            argv[index] = "";
             break;
         }
     }
