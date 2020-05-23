@@ -1,0 +1,19 @@
+; math3: 32-bit unsigned arithmetic
+;         var4 = (var1 * 5) / (var2 - 3)
+;         note: overflowed part should be truncated
+; ======
+;       var1 @ 0x600000-600004
+;       var2 @ 0x600004-600008
+;       var4 @ 0x600008-60000c
+; ======
+
+; (var1 * 5)
+mov eax, [0x600000]
+mov ebx, 0x05
+mul ebx
+; (var2 - 3)
+mov ebx, [0x600004]
+sub ebx, 0x03
+; (var1 * 5) / (var2 - 3)
+div ebx
+mov [0x600008], eax
