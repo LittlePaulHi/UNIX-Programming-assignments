@@ -1,7 +1,7 @@
 # Play in a Sandbox
 
 - [Sanbox](https://github.com/LittlePaulHi/UNIX-Programming-assignments/blob/master/hw2%20sandbox/sandbox.c) will confine file relevant operations to a user provided directory.
-- The shared object ([sandbox.so](https://github.com/LittlePaulHi/UNIX-Programming-assignments/blob/master/hw2%20sandbox/sandboxso.c)) will inject the shared library to check whther an operation attempts to escape from the sandbox.
+- The shared object ([sandbox.so](https://github.com/LittlePaulHi/UNIX-Programming-assignments/blob/master/hw2%20sandbox/sandboxso.c)) will inject the shared library to check whether an operation attempts to escape from the sandbox.
 
 ## Monitored library calls
 
